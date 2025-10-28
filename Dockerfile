@@ -23,5 +23,5 @@ COPY . .
 # Expose port (Railway uses $PORT automatically)
 EXPOSE 8080
 
-# Start the Flask app
-CMD ["python", "verify_face.py"]
+# Start the Flask app with Gunicorn for production
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "verify_face:app", "--workers", "4", "--threads", "2"]
