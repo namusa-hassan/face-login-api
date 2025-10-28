@@ -1,4 +1,4 @@
-# Base image with Python
+# Base image with Python 3.11
 FROM python:3.11-slim
 
 # Install system dependencies for OpenCV
@@ -10,15 +10,17 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy your code
 COPY . /app
+
+# Upgrade pip to the latest version
+RUN pip install --upgrade pip
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose port (Railway uses $PORT automatically)
-ENV PORT=8080
-EXPOSE $PORT
+EXPOSE 8080
 
-# Start the Flask app using Gunicorn
-CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "verify_face:app"]
+# Start the Flask app
+CMD ["python", "verify_face.py"]
