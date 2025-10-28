@@ -10,14 +10,15 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy your code
+# Copy project files
 COPY . /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port
-EXPOSE 8080
+# Expose port (Railway uses $PORT automatically)
+ENV PORT=8080
+EXPOSE $PORT
 
-# Start the Flask app
-CMD ["python", "verify_face.py"]
+# Start the Flask app using Gunicorn
+CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "verify_face:app"]
