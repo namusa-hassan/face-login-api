@@ -1,61 +1,52 @@
-# main.py
+# verify_face.py
 from flask import Flask, request, jsonify
-from deepface import DeepFace
+import face_recognition
+import numpy as np
 import tempfile
 import os
 
 app = Flask(__name__)
 
-# API key protection
-API_KEY = os.getenv("PY_API_KEY", "changeme")
-
-@app.before_request
-def check_api_key():
-    key = request.headers.get("X-API-KEY")
-    if key != API_KEY:
-        return jsonify({"error": "Unauthorized"}), 403
-
 @app.route('/verify', methods=['POST'])
-def verify_face():
+def verify():
+    if 'reference' not in request.files or 'test' not in request.files:
+        return jsonify({'error': 'Please upload both reference and test images'}), 400
+
+    ref_file = request.files['reference']
+    test_file = request.files['test']
+
+    # Save temp files
+    ref_path = tempfile.mktemp(suffix='.jpg')
+    test_path = tempfile.mktemp(suffix='.jpg')
+    ref_file.save(ref_path)
+    test_file.save(test_path)
+
     try:
-        # Check if files are provided
-        if 'student' not in request.files or 'captured' not in request.files:
-            return jsonify({"error": "Both 'student' and 'captured' files are required"}), 400
+        # Load images
+        ref_image = face_recognition.load_image_file(ref_path)
+        test_image = face_recognition.load_image_file(test_path)
 
-        student_file = request.files['student']
-        captured_file = request.files['captured']
+        # Encode faces
+        ref_encodings = face_recognition.face_encodings(ref_image)
+        test_encodings = face_recognition.face_encodings(test_image)
 
-        # Save to temporary files
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as student_temp:
-            student_file.save(student_temp.name)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as captured_temp:
-            captured_file.save(captured_temp.name)
+        if not ref_encodings or not test_encodings:
+            return jsonify({'match': False, 'error': 'No face detected in one of the images'})
 
-        # Run DeepFace verification
-        result = DeepFace.verify(
-            student_temp.name,
-            captured_temp.name,
-            model_name="ArcFace",
-            enforce_detection=False,
-            distance_metric="cosine",
-            detector_backend="opencv",
-        )
+        # Compare faces
+        match_results = face_recognition.compare_faces([ref_encodings[0]], test_encodings[0])
+        distance = face_recognition.face_distance([ref_encodings[0]], test_encodings[0])[0]
 
-        # Calculate confidence
-        confidence = max(0, 100 * (1 - result['distance'] / 0.68))
-        result['confidence'] = confidence
-        result['verified'] = confidence >= 60
+        return jsonify({
+            'match': bool(match_results[0]),
+            'distance': float(distance)
+        })
 
-        # Clean up temp files
-        os.remove(student_temp.name)
-        os.remove(captured_temp.name)
+    finally:
+        os.remove(ref_path)
+        os.remove(test_path)
 
-        return jsonify(result)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Run on Deta.space assigned port
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)

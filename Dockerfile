@@ -1,27 +1,15 @@
-# Base image with Python 3.11
+# Use a lightweight Python base
 FROM python:3.11-slim
 
-# Install system dependencies for OpenCV
-RUN apt-get update && apt-get install -y \
-    libgl1 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
 WORKDIR /app
+COPY . /app
 
-# Copy only requirements first for caching
-COPY requirements.txt .
+# Install system dependencies for dlib
+RUN apt-get update && apt-get install -y cmake libdlib-dev libgl1 && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install Python dependencies
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+ENV PORT=8080
+EXPOSE $PORT
 
-# Copy the rest of your code
-COPY . .
-
-# Expose port (Railway uses $PORT automatically)
-EXPOSE 8080
-
-# Start the Flask app with Gunicorn for production
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "verify_face:app", "--workers", "4", "--threads", "2"]
+CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "verify_face:app"]
