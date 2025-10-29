@@ -19,6 +19,6 @@ RUN pip install --upgrade pip \
 COPY . .
 
 ENV PORT=8080
-EXPOSE $PORT
+EXPOSE 8080
 
 CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "verify_face:app"]
